@@ -1,0 +1,36 @@
+{
+  "name": "shipping-comps-next",
+  "version": "0.4.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stripe/stripe-js": "^2.4.0",
+    "@supabase/supabase-js": "^2.50.3",
+    "cheerio": "^1.0.0-rc.12",
+    "next": "15.3.4",
+    "next-auth": "^4.24.7",
+    "openai": "^4.52.0",
+    "jspdf": "^2.5.2",
+    "html2canvas": "^1.4.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "stripe": "^12.18.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "24.0.10",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.4",
+    "tailwindcss": "^4",
+    "typescript": "5.8.3"
+  }
+}
