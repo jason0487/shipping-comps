@@ -6,10 +6,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Move Supabase initialization inside function to avoid build-time errors
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,6 +37,7 @@ export async function POST(request: NextRequest) {
 
     // Check per-customer usage for specific coupons (like LAUNCH50)
     if (userEmail && couponCode === 'LAUNCH50') {
+      const supabase = getSupabaseClient();
       const { data: existingUsage, error } = await supabase
         .from('coupon_usage')
         .select('id, used_at')
