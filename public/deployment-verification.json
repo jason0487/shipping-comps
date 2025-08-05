@@ -1,0 +1,8 @@
+{
+  "version": "v2.2",
+  "deployment_time": "2025-07-10T02:30:00Z",
+  "payment_history_enabled": true,
+  "card_details_integration": true,
+  "stripe_elements_working": true,
+  "build_hash": "payment-history-v2.2-fixed"
+}
