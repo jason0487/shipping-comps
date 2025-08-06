@@ -10,7 +10,19 @@ export async function POST(request: NextRequest) {
 
     // Calculate competitive grade based on user's shipping vs competitors
     const calculateCompetitiveGrade = (userShipping: any, competitors: any[]) => {
-      if (!userShipping?.threshold && !competitors?.length) return { grade: 'C', color: '#f59e0b' };
+      // Check if user already offers free shipping with no threshold (optimal strategy)
+      const userThreshold = userShipping?.threshold;
+      const hasUserFreeShipping = userShipping?.policy?.toLowerCase().includes('free') || userThreshold === 0;
+      
+      // If user offers free shipping on all orders (no threshold), they have the best possible shipping strategy
+      if (hasUserFreeShipping && userThreshold === 0) {
+        return { 
+          grade: 'A+', 
+          color: '#16a34a',
+          message: 'Excellent! You already offer the best shipping incentive - free shipping on all orders.',
+          isOptimal: true
+        };
+      }
       
       const competitorThresholds = competitors
         .map(comp => {
@@ -19,19 +31,26 @@ export async function POST(request: NextRequest) {
         })
         .filter(Boolean);
       
-      if (competitorThresholds.length === 0) return { grade: 'C', color: '#f59e0b' };
+      // If no competitor data, return moderate grade
+      if (competitorThresholds.length === 0) {
+        return { 
+          grade: 'B', 
+          color: '#84cc16',
+          message: 'Limited competitor data available for comparison.'
+        };
+      }
       
       const avgThreshold = competitorThresholds.reduce((a, b) => a + b, 0) / competitorThresholds.length;
-      const userThreshold = userShipping?.threshold || 999;
+      const currentThreshold = userThreshold || 999;
       
-      if (userThreshold <= avgThreshold * 0.7) return { grade: 'A+', color: '#16a34a' }; // Green
-      if (userThreshold <= avgThreshold) return { grade: 'A-', color: '#16a34a' }; // Green
-      if (userThreshold <= avgThreshold * 1.3) return { grade: 'B+', color: '#84cc16' }; // Light Green
-      if (userThreshold <= avgThreshold * 1.6) return { grade: 'B-', color: '#84cc16' }; // Light Green
-      if (userThreshold <= avgThreshold * 2) return { grade: 'C+', color: '#eab308' }; // Yellow
-      if (userThreshold <= avgThreshold * 2.5) return { grade: 'C-', color: '#eab308' }; // Yellow
-      if (userThreshold <= avgThreshold * 3) return { grade: 'D+', color: '#f97316' }; // Orange
-      return { grade: 'F', color: '#ef4444' }; // Red
+      if (currentThreshold <= avgThreshold * 0.7) return { grade: 'A+', color: '#16a34a', message: 'Highly competitive shipping strategy!' }; 
+      if (currentThreshold <= avgThreshold) return { grade: 'A-', color: '#16a34a', message: 'Strong competitive position in shipping.' }; 
+      if (currentThreshold <= avgThreshold * 1.3) return { grade: 'B+', color: '#84cc16', message: 'Good shipping strategy with room for improvement.' }; 
+      if (currentThreshold <= avgThreshold * 1.6) return { grade: 'B-', color: '#84cc16', message: 'Moderate shipping competitiveness.' }; 
+      if (currentThreshold <= avgThreshold * 2) return { grade: 'C+', color: '#eab308', message: 'Shipping strategy needs improvement.' }; 
+      if (currentThreshold <= avgThreshold * 2.5) return { grade: 'C-', color: '#eab308', message: 'Below average shipping competitiveness.' }; 
+      if (currentThreshold <= avgThreshold * 3) return { grade: 'D+', color: '#f97316', message: 'Shipping strategy significantly behind competitors.' }; 
+      return { grade: 'F', color: '#ef4444', message: 'Shipping strategy needs major improvement.' }; 
     };
 
     const grade = calculateCompetitiveGrade(analysisResult.user_shipping, analysisResult.competitors);
@@ -39,7 +58,11 @@ export async function POST(request: NextRequest) {
     // Generate recommendations based on analysis
     const generateRecommendations = () => {
       const competitors = analysisResult.competitors || [];
-      const userThreshold = analysisResult.user_shipping?.threshold || 0;
+      const userThreshold = analysisResult.user_shipping?.threshold;
+      const userPolicy = analysisResult.user_shipping?.policy || '';
+      
+      // Check if user already has optimal shipping (free shipping, no threshold)
+      const hasOptimalShipping = userThreshold === 0 && userPolicy.toLowerCase().includes('free');
       
       const competitorThresholds = competitors
         .map(comp => {
@@ -52,6 +75,59 @@ export async function POST(request: NextRequest) {
         ? competitorThresholds.reduce((a, b) => a + b, 0) / competitorThresholds.length 
         : 75;
       
+      // If user already has optimal shipping, focus on maintaining advantage
+      if (hasOptimalShipping) {
+        return {
+          currentStatus: {
+            message: `🎉 Excellent! You already offer free shipping on all orders with no minimum threshold. This is the most competitive shipping strategy possible.`,
+            policy: userPolicy,
+            isOptimal: true
+          },
+          thresholdOptions: {
+            maintain: { 
+              amount: 0, 
+              description: "Maintain Current Strategy - You're already offering the best possible shipping incentive",
+              recommendation: "Continue offering free shipping on all orders to maintain your competitive advantage"
+            }
+          },
+          avgThreshold: Math.round(avgThreshold),
+          policies: [
+            'Continue offering free shipping on all orders to maintain competitive advantage',
+            'Consider highlighting your free shipping prominently on your website',
+            'Ensure shipping costs are properly factored into product pricing',
+            'Explore ways to optimize shipping costs while maintaining free shipping'
+          ],
+          actionPlan: [
+            {
+              phase: 'Immediate',
+              actions: [
+                'Verify free shipping is prominently displayed on your website',
+                'Ensure product pricing accounts for shipping costs',
+                'Review shipping carrier contracts for cost optimization'
+              ]
+            },
+            {
+              phase: 'Week 1-2',
+              actions: [
+                'Add free shipping messaging to product pages and checkout',
+                'Consider expedited shipping options as paid upgrades',
+                'Monitor shipping cost margins and adjust pricing if needed'
+              ]
+            },
+            {
+              phase: 'Month 1-2',
+              actions: [
+                'Analyze shipping cost impact on margins',
+                'Explore bulk shipping discounts with carriers',
+                'Consider regional shipping optimization',
+                'Test messaging around your shipping advantage in marketing'
+              ]
+            }
+          ]
+        };
+      }
+      
+      // Standard recommendations for businesses without optimal shipping
       const highlyCompetitive = Math.max(25, Math.floor(avgThreshold * 0.7));  // 30% below average
       const moderatelyCompetitive = Math.max(25, Math.floor(avgThreshold * 0.85)); // 15% below average
       const lowCompetitive = Math.max(25, Math.floor(avgThreshold * 1.0)); // Match average
@@ -156,12 +232,29 @@ export async function POST(request: NextRequest) {
                     </div>
                     <div style="font-size: 64px; font-weight: bold; color: ${grade.color}; line-height: 1; margin-bottom: 12px;">${grade.grade}</div>
                     <div style="font-size: 16px; color: #6b7280;">Based on analysis of ${analysisResult.competitors?.length || 0} competitors</div>
+                    ${grade.message ? `<div style="font-size: 16px; color: #333; font-weight: 500; margin-top: 15px; padding: 15px; background: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 4px;">${grade.message}</div>` : ''}
+                    ${grade.isOptimal ? `<div style="font-size: 14px; color: #16a34a; margin-top: 10px; font-weight: 600;">✅ You're already offering the most competitive shipping strategy!</div>` : ''}
                 </div>
 
+                ${recommendations.currentStatus ? `
+                <div style="background: #f0fdf4; border: 2px solid #16a34a; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #16a34a; margin-top: 0; font-size: 20px;">Current Shipping Status</h3>
+                    <p style="margin: 10px 0; font-size: 16px; color: #333;">${recommendations.currentStatus.message}</p>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;"><strong>Your Policy:</strong> ${recommendations.currentStatus.policy}</p>
+                </div>
+                ` : ''}
+
                 <div class="section">
-                    <h3>🎯 Recommended Shipping Threshold Options</h3>
-                    <p style="margin-bottom: 20px; color: #666;">Choose your competitive strategy based on your business goals:</p>
+                    <h3>🎯 ${recommendations.currentStatus ? 'Maintain Your Competitive Advantage' : 'Recommended Shipping Threshold Options'}</h3>
+                    <p style="margin-bottom: 20px; color: #666;">${recommendations.currentStatus ? 'Focus on optimizing your existing free shipping strategy:' : 'Choose your competitive strategy based on your business goals:'}</p>
                     
+                    ${recommendations.thresholdOptions.maintain ? `
+                    <div style="border: 2px solid #16a34a; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f0fdf4;">
+                        <h4 style="color: #16a34a; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">🏆 ${recommendations.thresholdOptions.maintain.description}</h4>
+                        <p style="margin: 0; font-size: 14px; color: #15803d;">${recommendations.thresholdOptions.maintain.recommendation}</p>
+                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #666;">You're already offering the optimal shipping incentive - better than ${recommendations.avgThreshold > 0 ? `$${recommendations.avgThreshold} competitor average` : 'most competitors'}</p>
+                    </div>
+                    ` : `
                     <div style="border: 2px solid #16a34a; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f0fdf4;">
                         <h4 style="color: #16a34a; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">💪 Highly Competitive: $${recommendations.thresholdOptions.highly.amount}</h4>
                         <p style="margin: 0; font-size: 14px; color: #15803d;">${recommendations.thresholdOptions.highly.description}</p>
@@ -179,6 +272,7 @@ export async function POST(request: NextRequest) {
                         <p style="margin: 0; font-size: 14px; color: #4b5563;">${recommendations.thresholdOptions.low.description}</p>
                         <p style="margin: 8px 0 0 0; font-size: 14px; color: #666;">Matches competitor average of $${recommendations.avgThreshold}</p>
                     </div>
+                    `}
                 </div>
 
                 <div class="section">
@@ -203,7 +297,7 @@ export async function POST(request: NextRequest) {
                 <div class="cta-section">
                     <h2>Ready to Optimize Your Shipping?</h2>
                     <div style="text-align: center; margin: 20px 0;">
-                        <img src="${process.env.NODE_ENV === 'production' ? 'https://shippingcomps.com' : 'http://localhost:5000'}/images/deliveri-logo.png" alt="Deliveri" style="max-width: 150px; height: auto; display: block; margin: 0 auto;"/>
+                        <img src="https://raw.githubusercontent.com/brownje07/shipping-comps-next/main/public/images/deliveri-logo.png" alt="Deliveri" style="max-width: 150px; height: auto; display: block; margin: 0 auto;" onerror="this.style.display='none'"/>
                     </div>
                     <p><strong>Deliveri can help you with:</strong></p>
                     <ul style="text-align: center; display: inline-block; list-style: none; padding: 0;">
