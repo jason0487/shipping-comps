@@ -4,17 +4,21 @@ import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { useAuth } from '../context/AuthContext';
 
-// Initialize Stripe with safe environment variable access
-const getStripePromise = () => {
-  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-  if (!publishableKey) {
-    console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY environment variable is missing');
-    return null;
-  }
-  return loadStripe(publishableKey);
-};
+// Initialize Stripe with lazy loading to prevent build-time errors
+let stripePromise: Promise<any> | null = null;
 
-const stripePromise = getStripePromise();
+const getStripePromise = () => {
+  if (!stripePromise) {
+    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    if (!publishableKey) {
+      console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY environment variable is missing');
+      console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('STRIPE')));
+      return null;
+    }
+    stripePromise = loadStripe(publishableKey);
+  }
+  return stripePromise;
+};
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -46,7 +50,7 @@ function StripeElementsForm({
 
   useEffect(() => {
     const initializeStripeElements = async () => {
-      const stripe = await stripePromise;
+      const stripe = await getStripePromise();
       if (!stripe || !clientSecret) return;
 
       // Create Elements instance
