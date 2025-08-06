@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-// Initialize AI services
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialization function
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is missing');
+  }
+  return new OpenAI({ apiKey });
+}
 
 interface Competitor {
   name: string;
@@ -134,6 +138,7 @@ Return response in this JSON format:
 
 Focus on direct competitors in the same industry with similar products and target market. Provide exact, working website URLs.`;
 
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -367,6 +372,7 @@ Format the response as a comprehensive business analysis that maintains professi
 
 Write in a professional, consultant-style tone similar to a McKinsey or BCG analysis - authoritative, data-driven, and actionable.`;
 
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -386,7 +392,8 @@ Focus on:
 
 Keep recommendations specific, measurable, and implementable. Format as clear action items.`;
 
-    const recResponse = await openai.chat.completions.create({
+    const openai2 = getOpenAIClient();
+    const recResponse = await openai2.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: recommendationsPrompt }],
       max_tokens: 1000,

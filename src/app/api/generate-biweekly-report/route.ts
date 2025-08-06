@@ -2,16 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is missing');
+  }
+  return new OpenAI({ apiKey });
+}
 
-const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  
+  return createClient(supabaseUrl, supabaseKey);
+}
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getPerplexityApiKey() {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) {
+    throw new Error('PERPLEXITY_API_KEY environment variable is missing');
+  }
+  return apiKey;
+}
 
 interface Competitor {
   name: string;
@@ -68,6 +84,7 @@ Provide analysis in this format:
 Focus on business characteristics, target audience, product categories, and competitive positioning.`;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -101,6 +118,7 @@ Return exactly 10 competitors in this JSON format:
 Focus on direct competitors in the same industry with similar products and target market.`;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -125,6 +143,7 @@ Focus on direct competitors in the same industry with similar products and targe
 
 // Analyze competitor shipping with Perplexity
 async function analyzeCompetitorShipping(competitor: Competitor): Promise<string> {
+  const perplexityApiKey = getPerplexityApiKey();
   if (!perplexityApiKey) {
     return 'Shipping analysis unavailable - API key not configured';
   }
