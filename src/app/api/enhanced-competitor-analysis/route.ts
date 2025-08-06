@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 interface ComprehensiveBusinessData {
   business_details: {
@@ -50,6 +52,7 @@ interface Competitor {
 
 export async function POST(request: NextRequest) {
   try {
+    const openai = getOpenAIClient();
     const { website_url } = await request.json();
 
     if (!website_url) {

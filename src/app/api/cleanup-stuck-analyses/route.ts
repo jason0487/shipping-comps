@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // Cleanup analyses that have been stuck in processing for more than 5 minutes
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseClient();
     const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString(); // 3 minutes threshold
     
     // Find stuck processing records
