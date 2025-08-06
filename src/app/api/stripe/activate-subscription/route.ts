@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 function getStripeClient() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is missing');
+  }
+  return new Stripe(secretKey, {
     apiVersion: '2022-11-15',
   });
 }
