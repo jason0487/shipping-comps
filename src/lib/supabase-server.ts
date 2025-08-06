@@ -20,5 +20,7 @@ export function createSupabaseAdmin() {
   });
 }
 
-// For backward compatibility, export as singleton but with lazy initialization
-export const supabaseAdmin = createSupabaseAdmin();
+// Lazy initialization helper - no module-level initialization
+export function getSupabaseAdmin() {
+  return createSupabaseAdmin();
+}
