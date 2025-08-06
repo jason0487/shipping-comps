@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +30,7 @@ export async function POST(request: NextRequest) {
     
     // Only save to database if we have a real analysis ID (not temporary)
     if (analysisId && !analysisId.startsWith('temp-') && userId && userId !== 'guest') {
+      const supabaseAdmin = getSupabaseClient();
       const { error: updateError } = await supabaseAdmin
         .from('analysis_history')
         .update({ 

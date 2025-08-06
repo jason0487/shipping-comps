@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 import { startAnalysisTimeout, stopAnalysisTimeout } from '@/lib/analysis-timeout';
 import { sendProgressUpdate } from '../analysis-progress/route';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
+
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 interface ComprehensiveBusinessData {
   business_name: string;
@@ -782,27 +791,27 @@ export async function POST(request: NextRequest) {
     }
     const competitorData = [];
     
-    // Process 10 competitors with comprehensive business intelligence 
-    const totalCompetitors = Math.min(competitors.length, 10);
-    const batchSize = 5;
+    // Process 5 competitors for faster analysis (timeout optimization)
+    const totalCompetitors = Math.min(competitors.length, 5);
+    const batchSize = 3;
     const batches = [];
     
     for (let i = 0; i < totalCompetitors; i += batchSize) {
       batches.push(competitors.slice(i, i + batchSize));
     }
     
-    console.log(`🚀 Processing ${totalCompetitors} competitors in ${batches.length} batches of ${batchSize} each`);
-    console.log(`📈 This will provide comprehensive business intelligence for all competitors\n`);
+    console.log(`🚀 Processing ${totalCompetitors} competitors in ${batches.length} batches of ${batchSize} each (TIMEOUT OPTIMIZED)`);
+    console.log(`📈 Streamlined analysis for faster completion\n`);
     
     // Process each batch sequentially
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
       console.log(`\n🎯 === Processing Batch ${batchIndex + 1}/${batches.length} (${batch.length} competitors) ===`);
       
-      // Add delay between batches to give Firecrawl API time to reset
+      // Reduced delay for faster processing (timeout optimization)
       if (batchIndex > 0) {
-        console.log('⏸️ Waiting 5 seconds between batches for API rate limits...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log('⏸️ Waiting 2 seconds between batches...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
       // Process competitors in current batch
@@ -856,8 +865,8 @@ export async function POST(request: NextRequest) {
           });
         }
         
-        // Short delay between competitors in same batch
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Minimal delay for timeout optimization
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       console.log(`🎯 Completed Batch ${batchIndex + 1}/${batches.length} - ${competitorData.length} competitors analyzed so far`);
