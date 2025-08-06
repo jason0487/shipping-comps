@@ -220,6 +220,7 @@ Search all parts of the website, including homepage banners, promotional section
         try {
           console.log(`Processing new schema shipping text for ${websiteUrl}:`, allShippingText.substring(0, 200) + '...');
           
+          const openai = getOpenAIClient();
           const shippingAnalysis = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
@@ -398,6 +399,7 @@ Include only the domain (no https://, no www) for website field. Focus on accura
 
   try {
     console.log('🔍 Discovering competitors with enhanced context...');
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -463,6 +465,7 @@ Suggest 10 additional direct competitors with different, verified domain names. 
 Use the same JSON format with accurate domains.`;
 
       try {
+        const openai = getOpenAIClient();
         const additionalResponse = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [{ role: "user", content: additionalPrompt }],
@@ -564,6 +567,7 @@ Provide response in this JSON format:
 
 Only include fields where you have confident knowledge. If uncertain about any field, omit it.`;
 
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -685,6 +689,7 @@ Identify the specific industry sector based on products and market focus. Exampl
 Focus on actionable insights and strategic positioning analysis. Be specific and descriptive throughout.`;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -720,6 +725,7 @@ Provide specific, actionable recommendations in this format:
 Continue with 5-7 total recommendations focused on competitive advantages, market positioning, customer experience, and growth opportunities.`;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o", 
       messages: [{ role: "user", content: prompt }],
@@ -918,8 +924,9 @@ export async function POST(request: NextRequest) {
     const primaryThreshold = extractShippingThreshold(primarySiteData);
 
     // Store analysis in database if user_id provided
-    if (user_id && supabaseAdmin) {
+    if (user_id) {
       try {
+        const supabaseAdmin = getSupabaseClient();
         await supabaseAdmin
           .from('analysis_history')
           .insert({
