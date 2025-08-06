@@ -803,8 +803,8 @@ export async function POST(request: NextRequest) {
     }
     const competitorData = [];
     
-    // Process 5 competitors for faster analysis (timeout optimization)
-    const totalCompetitors = Math.min(competitors.length, 5);
+    // Process 10 competitors for complete analysis
+    const totalCompetitors = Math.min(competitors.length, 10);
     const batchSize = 3;
     const batches = [];
     
@@ -812,8 +812,8 @@ export async function POST(request: NextRequest) {
       batches.push(competitors.slice(i, i + batchSize));
     }
     
-    console.log(`🚀 Processing ${totalCompetitors} competitors in ${batches.length} batches of ${batchSize} each (TIMEOUT OPTIMIZED)`);
-    console.log(`📈 Streamlined analysis for faster completion\n`);
+    console.log(`🚀 Processing ${totalCompetitors} competitors in ${batches.length} batches of ${batchSize} each`);
+    console.log(`📈 Complete competitive analysis with 10 competitors\n`);
     
     // Process each batch sequentially
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
