@@ -98,7 +98,8 @@ async function comprehensiveFirecrawlAnalysis(websiteUrl: string): Promise<Compr
 - **PROMOTIONAL BANNERS**: Check any colored bars, announcement banners, or promotional messages about shipping
 - **NAVIGATION AREAS**: Look for shipping mentions in menu items, top bars, or sticky headers
 - **EXACT TEXT CAPTURE**: Record the exact wording of any shipping-related text found
-- **THRESHOLD DETECTION**: Identify specific dollar amounts for free shipping (e.g., $50, $75, $100)
+- **THRESHOLD DETECTION**: Identify specific dollar amounts for free shipping and extract the numeric value (e.g., if you see "$75", extract 75 as a number)
+- **STRUCTURED INCENTIVES**: For each shipping offer found, create a structured object with the description, any validity period, and the minimum purchase amount as a number
 - **CONDITIONS**: Note any conditions like "Continental US only", "Domestic shipping", membership requirements
 - **FOOTER SHIPPING**: Check footer sections for shipping policy links or mentions
 - **CART/CHECKOUT HINTS**: Look for shipping mentions near add-to-cart buttons or product pages
@@ -123,10 +124,23 @@ IMPORTANT: Even if shipping information seems minimal, capture ANY mention of de
                 type: "object",
                 properties: {
                   has_free_shipping: { type: "boolean" },
-                  free_shipping_conditions: { type: "string", description: "Exact conditions for free shipping found on the website" },
-                  shipping_thresholds: { type: "string", description: "Minimum order amounts for free shipping (e.g., $75, $100)" },
+                  free_shipping_incentives: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        description: { type: "string", description: "Exact text describing the shipping offer" },
+                        validity_period: { type: "string", description: "Time period or conditions when offer is valid" },
+                        minimum_purchase: { type: "number", description: "Dollar amount threshold for free shipping (e.g., 75 for $75)" }
+                      },
+                      required: ["description"]
+                    },
+                    description: "Structured shipping incentives with specific thresholds and conditions"
+                  },
+                  free_shipping_conditions: { type: "string", description: "General conditions for free shipping found on the website" },
+                  shipping_thresholds: { type: "string", description: "Text description of minimum order amounts for free shipping" },
                   regional_shipping_notes: { type: "string", description: "Geographic restrictions or regional shipping details" },
-                  shipping_incentives: { type: "string", description: "Any shipping promotions or incentives offered" },
+                  shipping_incentives: { type: "string", description: "General shipping promotions or incentives offered" },
                   general_shipping_policy: { type: "string", description: "General shipping information or policy details" },
                   homepage_shipping_banners: {
                     type: "array",
@@ -144,7 +158,7 @@ IMPORTANT: Even if shipping information seems minimal, capture ANY mention of de
                     description: "All shipping-related text snippets found anywhere on the website"
                   }
                 },
-                required: ["has_free_shipping", "homepage_shipping_banners", "promotional_shipping_text"]
+                required: ["has_free_shipping", "free_shipping_incentives", "homepage_shipping_banners"]
               },
               business_description: { type: "string" },
               business_summary: { type: "string" },
