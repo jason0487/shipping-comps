@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: subscriptionId } = await params;
     const updatedData = await request.json();
 
+    const supabase = getSupabaseClient();
     // Update subscription in database
     const { error } = await supabase
       .from('subscriptions')
@@ -50,6 +53,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     const { id: subscriptionId } = await params;
 
+    const supabase = getSupabaseClient();
     // Delete subscription from database
     const { error } = await supabase
       .from('subscriptions')
