@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2022-11-15',
-});
+function getStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2022-11-15',
+  });
+}
 
 // Move Supabase initialization inside function to avoid build-time errors
 function getSupabaseClient() {
@@ -16,6 +18,7 @@ function getSupabaseClient() {
 
 export async function POST(request: NextRequest) {
   try {
+    const stripe = getStripeClient();
     const { couponCode, amount, userEmail } = await request.json();
 
     if (!couponCode) {

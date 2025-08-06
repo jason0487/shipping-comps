@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,6 +27,7 @@ export async function GET(request: NextRequest) {
 
     // Check 2: Database Connection
     try {
+      const supabaseAdmin = getSupabaseClient();
       const { data, error } = await supabaseAdmin
         .from('users')
         .select('id')
