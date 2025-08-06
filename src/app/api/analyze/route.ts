@@ -91,14 +91,17 @@ async function comprehensiveFirecrawlAnalysis(websiteUrl: string): Promise<Compr
         waitFor: 3000,
         onlyMainContent: false,
         extract: {
-          prompt: `Extract comprehensive business intelligence and shipping information from this website:
+          prompt: `CRITICAL: Look carefully for shipping information displayed anywhere on this website, especially in header banners, promotional bars, and navigation areas.
 
-**SHIPPING INFORMATION:**
-- Detect any form of free or discounted shipping, even if the phrase "free shipping" is not explicitly used.
-- Identify conditions under which free or reduced-cost shipping is offered (e.g., minimum order amounts, regional restrictions, promotional periods, membership tiers, or specific product eligibility).
-- Include any notes about regional shipping limits (e.g., continental U.S. only, no Alaska/Hawaii, domestic only).
-- Pull any general shipping policy or FAQ that mentions delivery rules, timing, or restrictions.
-- Include the exact phrases or snippets of text where shipping terms are mentioned.
+**SHIPPING INFORMATION - SEARCH EVERYWHERE:**
+- **HEADER/BANNER TEXT**: Look for any text at the top of the page mentioning shipping (e.g., "Free Shipping on orders over $X", "Free delivery", "Complimentary shipping")
+- **PROMOTIONAL BANNERS**: Check any colored bars, announcement banners, or promotional messages about shipping
+- **NAVIGATION AREAS**: Look for shipping mentions in menu items, top bars, or sticky headers
+- **EXACT TEXT CAPTURE**: Record the exact wording of any shipping-related text found
+- **THRESHOLD DETECTION**: Identify specific dollar amounts for free shipping (e.g., $50, $75, $100)
+- **CONDITIONS**: Note any conditions like "Continental US only", "Domestic shipping", membership requirements
+- **FOOTER SHIPPING**: Check footer sections for shipping policy links or mentions
+- **CART/CHECKOUT HINTS**: Look for shipping mentions near add-to-cart buttons or product pages
 
 **BUSINESS INTELLIGENCE:**
 - Mission statement, company values, or "about us" information
@@ -112,7 +115,7 @@ async function comprehensiveFirecrawlAnalysis(websiteUrl: string): Promise<Compr
 - International shipping policies or restrictions
 - Company description and business summary
 
-Search all parts of the website, including homepage banners, promotional sections, footers, policy pages, FAQs, about us, cart/checkout modals, and pop-ups.`,
+IMPORTANT: Even if shipping information seems minimal, capture ANY mention of delivery, shipping costs, free shipping thresholds, or shipping-related text found anywhere on the page.`,
           schema: {
             type: "object",
             properties: {
@@ -120,17 +123,28 @@ Search all parts of the website, including homepage banners, promotional section
                 type: "object",
                 properties: {
                   has_free_shipping: { type: "boolean" },
-                  free_shipping_conditions: { type: "string" },
-                  shipping_thresholds: { type: "string" },
-                  regional_shipping_notes: { type: "string" },
-                  shipping_incentives: { type: "string" },
-                  general_shipping_policy: { type: "string" },
+                  free_shipping_conditions: { type: "string", description: "Exact conditions for free shipping found on the website" },
+                  shipping_thresholds: { type: "string", description: "Minimum order amounts for free shipping (e.g., $75, $100)" },
+                  regional_shipping_notes: { type: "string", description: "Geographic restrictions or regional shipping details" },
+                  shipping_incentives: { type: "string", description: "Any shipping promotions or incentives offered" },
+                  general_shipping_policy: { type: "string", description: "General shipping information or policy details" },
+                  homepage_shipping_banners: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Exact text from any shipping banners, headers, or promotional bars on the homepage"
+                  },
+                  promotional_shipping_text: {
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "Any promotional text mentioning shipping, delivery, or related offers"
+                  },
                   raw_shipping_snippets: {
                     type: "array",
-                    items: { type: "string" }
+                    items: { type: "string" },
+                    description: "All shipping-related text snippets found anywhere on the website"
                   }
                 },
-                required: ["has_free_shipping", "general_shipping_policy"]
+                required: ["has_free_shipping", "homepage_shipping_banners", "promotional_shipping_text"]
               },
               business_description: { type: "string" },
               business_summary: { type: "string" },
