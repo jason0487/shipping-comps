@@ -3,19 +3,31 @@ import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
 function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is missing');
+  }
+  return new OpenAI({ apiKey });
 }
 
 function getSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  
+  return createClient(supabaseUrl, supabaseKey);
 }
 
-const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
+function getPerplexityApiKey() {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) {
+    throw new Error('PERPLEXITY_API_KEY environment variable is missing');
+  }
+  return apiKey;
+}
 
 interface Competitor {
   name: string;
@@ -33,6 +45,7 @@ async function quickScrapeWebsite(url: string): Promise<string> {
       url = 'https://' + url;
     }
 
+    const perplexityApiKey = getPerplexityApiKey();
     if (!perplexityApiKey) {
       throw new Error('Perplexity API key not available');
     }

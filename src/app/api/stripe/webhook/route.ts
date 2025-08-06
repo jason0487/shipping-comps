@@ -3,17 +3,24 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
 function getStripeClient() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is missing');
+  }
+  return new Stripe(secretKey, {
     apiVersion: '2022-11-15',
   });
 }
 
-// Move Supabase initialization inside function to avoid build-time errors
 function getSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  
+  return createClient(supabaseUrl, supabaseKey);
 }
 
 export async function POST(request: NextRequest) {
@@ -23,10 +30,11 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event;
 
   try {
+    const stripe = getStripeClient();
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      process.env.STRIPE_WEBHOOK_SECRET || ''
     );
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
@@ -44,7 +52,8 @@ export async function POST(request: NextRequest) {
         
         if (invoice.subscription) {
           // Get the subscription to access its metadata
-          const invoiceSubscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+          const stripe2 = getStripeClient();
+          const invoiceSubscription = await stripe2.subscriptions.retrieve(invoice.subscription as string);
           console.log('Retrieved subscription metadata:', invoiceSubscription.metadata);
           
           const { website_url, user_email, monitoring_url, monitored_url } = invoiceSubscription.metadata;
@@ -338,7 +347,8 @@ export async function POST(request: NextRequest) {
         
         // Handle subscription payments
         if (subscriptionInvoice.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionInvoice.subscription as string);
+          const stripe3 = getStripeClient();
+          const subscription = await stripe3.subscriptions.retrieve(subscriptionInvoice.subscription as string);
           console.log('Subscription metadata:', JSON.stringify(subscription.metadata, null, 2));
           const { website_url, monitored_url } = subscription.metadata;
           
