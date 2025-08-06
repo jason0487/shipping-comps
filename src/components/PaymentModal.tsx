@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { useAuth } from '../context/AuthContext';
 
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+// Initialize Stripe with safe environment variable access
+const getStripePromise = () => {
+  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!publishableKey) {
+    console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY environment variable is missing');
+    return null;
+  }
+  return loadStripe(publishableKey);
+};
+
+const stripePromise = getStripePromise();
 
 interface PaymentModalProps {
   isOpen: boolean;
