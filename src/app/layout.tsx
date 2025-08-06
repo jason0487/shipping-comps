@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,15 +35,17 @@ export default function RootLayout({
             }}
           />
           
-          <AuthProvider>
-            <div className="relative z-10 flex flex-col min-h-screen">
-              <Header />
-              <div className="flex-1">
-                {children}
+          <ErrorBoundary>
+            <AuthProvider>
+              <div className="relative z-10 flex flex-col min-h-screen">
+                <Header />
+                <div className="flex-1">
+                  {children}
+                </div>
+                <Footer />
               </div>
-              <Footer />
-            </div>
-          </AuthProvider>
+            </AuthProvider>
+          </ErrorBoundary>
         </div>
       </body>
     </html>

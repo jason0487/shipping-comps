@@ -4,11 +4,25 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import SignInModal from '@/components/auth/SignInModal';
 
+// Add error boundary for Railway deployment debugging
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (e) => {
+    console.error('Global error caught:', e.error);
+  });
+  
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('Unhandled promise rejection:', e.reason);
+  });
+}
+
 interface Competitor {
   name: string;
   website: string;
   products: string;
   shipping_incentives: string;
+  comprehensiveData?: any;
+  businessData?: any;
+  shippingAnalysis?: any;
 }
 
 interface AnalysisResult {
@@ -17,6 +31,8 @@ interface AnalysisResult {
   business_summary?: string;
   competitors: Competitor[];
   user_shipping: any;
+  analysisId?: string;
+  user_site_data?: any;
 }
 
 // Email Form Component
