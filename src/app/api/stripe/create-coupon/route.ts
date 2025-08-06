@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-// Use live or test key based on environment
-const stripeKey = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_TEST_API_KEY;
-
-if (!stripeKey) {
-  throw new Error('Missing Stripe secret key in environment variables');
+function getStripeClient() {
+  const stripeKey = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_TEST_API_KEY;
+  
+  if (!stripeKey) {
+    throw new Error('Missing Stripe secret key in environment variables');
+  }
+  
+  return new Stripe(stripeKey, {
+    apiVersion: '2022-11-15',
+  });
 }
-
-const stripe = new Stripe(stripeKey, {
-  apiVersion: '2022-11-15',
-});
 
 export async function POST(request: NextRequest) {
   try {
+    const stripe = getStripeClient();
     const { couponId, percentOff, name, maxRedemptionsPerCustomer, maxRedemptions } = await request.json();
 
     if (!couponId || !percentOff) {

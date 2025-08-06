@@ -1,28 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-// Use live or test key based on environment
-const stripeKey = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_TEST_API_KEY;
-
-if (!stripeKey) {
-  throw new Error('Missing Stripe secret key in environment variables');
+function getStripeClient() {
+  const stripeKey = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_TEST_API_KEY;
+  
+  if (!stripeKey) {
+    throw new Error('Missing Stripe secret key in environment variables');
+  }
+  
+  console.log('🔑 STRIPE KEY MODE v6.1.1:', {
+    key_starts_with: stripeKey.substring(0, 12),
+    is_test: stripeKey.startsWith('sk_test_'),
+    is_live: stripeKey.startsWith('sk_live_'),
+    env_var: process.env.STRIPE_SECRET_KEY?.substring(0, 12),
+    env_var_length: process.env.STRIPE_SECRET_KEY?.length,
+    timestamp: new Date().toISOString()
+  });
+  
+  return new Stripe(stripeKey, {
+    apiVersion: '2022-11-15',
+  });
 }
-
-const stripe = new Stripe(stripeKey, {
-  apiVersion: '2022-11-15',
-});
-
-console.log('🔑 STRIPE KEY MODE v6.1.1:', {
-  key_starts_with: stripeKey.substring(0, 12),
-  is_test: stripeKey.startsWith('sk_test_'),
-  is_live: stripeKey.startsWith('sk_live_'),
-  env_var: process.env.STRIPE_SECRET_KEY?.substring(0, 12),
-  env_var_length: process.env.STRIPE_SECRET_KEY?.length,
-  timestamp: new Date().toISOString()
-});
 
 export async function POST(request: NextRequest) {
   try {
+    const stripe = getStripeClient();
     const { websiteUrl, userEmail, couponId, finalAmount } = await request.json();
 
     if (!websiteUrl || !userEmail) {

@@ -2,30 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-// Use live or test key based on environment
-const stripeKey = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_TEST_API_KEY;
-
-if (!stripeKey) {
-  throw new Error('Missing Stripe secret key in environment variables');
+function getStripeClient() {
+  const stripeKey = process.env.STRIPE_SECRET_KEY || process.env.STRIPE_TEST_API_KEY;
+  
+  if (!stripeKey) {
+    throw new Error('Missing Stripe secret key in environment variables');
+  }
+  
+  console.log('🔑 COMPLETE-SUBSCRIPTION STRIPE KEY MODE:', {
+    key_starts_with: stripeKey.substring(0, 12),
+    is_test: stripeKey.startsWith('sk_test_'),
+    is_live: stripeKey.startsWith('sk_live_')
+  });
+  
+  return new Stripe(stripeKey, {
+    apiVersion: '2022-11-15',
+  });
 }
 
-const stripe = new Stripe(stripeKey, {
-  apiVersion: '2022-11-15',
-});
-
-console.log('🔑 COMPLETE-SUBSCRIPTION STRIPE KEY MODE:', {
-  key_starts_with: stripeKey.substring(0, 12),
-  is_test: stripeKey.startsWith('sk_test_'),
-  is_live: stripeKey.startsWith('sk_live_')
-});
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const stripe = getStripeClient();
+    const supabase = getSupabaseClient();
     const requestBody = await request.json();
     console.log('🔄 RAW REQUEST BODY RECEIVED:', requestBody);
     
