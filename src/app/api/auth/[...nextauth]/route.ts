@@ -3,9 +3,12 @@ import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 const handler = NextAuth({
   providers: [
@@ -25,6 +28,7 @@ const handler = NextAuth({
         }
 
         try {
+          const supabase = getSupabaseClient();
           // Check user in Supabase
           const { data: user, error } = await supabase
             .from('users')
@@ -54,6 +58,7 @@ const handler = NextAuth({
     async signIn({ user, account, profile }) {
       if (account?.provider === 'google') {
         try {
+          const supabase = getSupabaseClient();
           // Check if user exists in Supabase
           const { data: existingUser } = await supabase
             .from('users')
