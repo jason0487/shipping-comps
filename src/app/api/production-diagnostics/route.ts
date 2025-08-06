@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseClient();
     console.log('=== PRODUCTION DIAGNOSTICS STARTED ===');
     
     // Check 1: Recent analysis patterns

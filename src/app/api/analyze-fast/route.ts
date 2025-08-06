@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
+
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
 
@@ -70,6 +79,7 @@ async function quickScrapeWebsite(url: string): Promise<string> {
 // Find competitors with enhanced processing
 async function findQuickCompetitors(businessAnalysis: string): Promise<string[]> {
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{
@@ -148,6 +158,7 @@ Format as shipping incentives only, using bullet points with clear details. Be s
       const shippingAnalysis = data.choices?.[0]?.message?.content || '';
       
       // Get basic info about the company
+      const openai = getOpenAIClient();
       const infoResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [{
@@ -187,6 +198,8 @@ export async function POST(request: NextRequest) {
   console.log('=== FAST ANALYSIS START ===');
   
   try {
+    const openai = getOpenAIClient();
+    const supabaseAdmin = getSupabaseClient();
     const { url, userId } = await request.json();
     
     if (!url) {
