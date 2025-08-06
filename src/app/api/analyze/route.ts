@@ -893,16 +893,70 @@ export async function POST(request: NextRequest) {
               'No shipping data found'
           });
         } catch (error) {
-          console.log(`❌ Skipping ${competitor.website} due to error:`, error instanceof Error ? error.message : 'Unknown error');
+          console.log(`❌ Firecrawl failed for ${competitor.website}:`, error instanceof Error ? error.message : 'Unknown error');
+          console.log(`🤖 Attempting OpenAI business intelligence enhancement for ${competitor.name}...`);
           
-          // Add competitor with null data to maintain structure
-          competitorData.push({
-            ...competitor,
-            comprehensiveData: null,
-            threshold: null,
-            businessData: null,
-            shippingAnalysis: 'Analysis failed due to timeout'
-          });
+          // Even if Firecrawl fails, attempt OpenAI business intelligence enhancement
+          try {
+            const minimalData = {
+              business_name: competitor.name,
+              business_description: competitor.products,
+              business_summary: `${competitor.name} - ${competitor.products}`,
+              shipping_info: {
+                has_free_shipping: false,
+                general_shipping_policy: 'Shipping information not available'
+              },
+              products: [competitor.products],
+              product_categories: [],
+              unique_selling_points: [],
+              key_features: [],
+              promotional_content: []
+            };
+            
+            const enhancedData = await enhanceBusinessIntelligence(competitor.website, minimalData, competitor.name);
+            
+            console.log(`✅ Business intelligence enhancement successful for ${competitor.name}`);
+            
+            competitorData.push({
+              ...competitor,
+              comprehensiveData: enhancedData,
+              threshold: extractShippingThreshold(enhancedData),
+              businessData: enhancedData,
+              shippingAnalysis: 'No shipping data found'
+            });
+          } catch (enhanceError) {
+            console.log(`❌ Both Firecrawl and OpenAI enhancement failed for ${competitor.name}`);
+            
+            // Final fallback: create basic business data structure
+            const fallbackData = {
+              business_name: competitor.name,
+              business_description: competitor.products,
+              business_summary: `${competitor.name} specializes in ${competitor.products}`,
+              mission_statement: `Information not available for ${competitor.name}`,
+              target_audience: 'Information not available',
+              unique_selling_points: ['Information not available'],
+              price_range: 'Information not available',
+              key_features: ['Information not available'],
+              promotional_content: [],
+              return_policy: 'Information not available',
+              customer_service_details: 'Information not available',
+              international_shipping: 'Information not available',
+              products: [competitor.products],
+              product_categories: ['General'],
+              shipping_info: {
+                has_free_shipping: false,
+                general_shipping_policy: 'Shipping information not available'
+              }
+            };
+            
+            competitorData.push({
+              ...competitor,
+              comprehensiveData: fallbackData,
+              threshold: null,
+              businessData: fallbackData,
+              shippingAnalysis: 'No shipping data found'
+            });
+          }
         }
         
         // Minimal delay for timeout optimization
