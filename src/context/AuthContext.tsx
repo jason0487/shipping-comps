@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase as getSupabaseClient } from '@/lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log('Loading profile for user:', supabaseUser.email);
       
-      const { data: userData, error } = await supabase
+      const { data: userData, error } = await getSupabaseClient()
         .from('users')
         .select(`
           id,
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error.code === 'PGRST116') {
           console.log('User not found, creating new profile...');
           
-          const { data: newUser, error: createError } = await supabase
+          const { data: newUser, error: createError } = await getSupabaseClient()
             .from('users')
             .insert({
               email: supabaseUser.email!,
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const totalTokens = userData.user_tokens?.reduce((sum: number, tokenRecord: any) => 
           sum + (tokenRecord.tokens_remaining || 0), 0) || 0;
 
-        await supabase
+        await getSupabaseClient()
           .from('users')
           .update({ 
             last_login: new Date().toISOString(),
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       console.log('Signing out...');
-      const { error } = await supabase.auth.signOut();
+      const { error } = await getSupabaseClient().auth.signOut();
       if (error) {
         console.error('Sign out error:', error);
       }
@@ -230,12 +230,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Refreshing tokens for user:', user.email);
       
       // First refresh the Supabase session to prevent timeout
-      const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
+      const { data: sessionData, error: sessionError } = await getSupabaseClient().auth.refreshSession();
       if (sessionError) {
         console.warn('Session refresh warning:', sessionError);
       }
       
-      const { data: userData, error } = await supabase
+      const { data: userData, error } = await getSupabaseClient()
         .from('users')
         .select(`
           user_tokens (
@@ -362,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await getSupabaseClient().auth.getSession();
         
         if (error) {
           console.error('Session error:', error);
@@ -443,7 +443,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener('analysisCompleted', handleAnalysisComplete);
     window.addEventListener('googleAuthSuccess', handleGoogleAuthSuccess);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.email);
         
