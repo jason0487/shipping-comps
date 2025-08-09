@@ -536,8 +536,14 @@ export default function Home() {
       if (response.ok) {
         setActionPlanEmail(email);
         setEmailSentConfirmation(true);
-        setShowPasswordPrompt(true);
+        // Only show password prompt if user is not already logged in
+        setShowPasswordPrompt(!isAuthenticated);
         setSentToEmail(email);
+        
+        // If user is already logged in, just show success message
+        if (isAuthenticated) {
+          setActionPlanSent(true);
+        }
       } else {
         const errorData = await response.json();
         console.error('API Error Response:', errorData);
