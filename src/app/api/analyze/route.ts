@@ -790,6 +790,68 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Check and deduct tokens if user_id provided
+    if (user_id) {
+      try {
+        const supabaseAdmin = getSupabaseClient();
+        
+        // Get current user data
+        const { data: userData, error: userError } = await supabaseAdmin
+          .from('users')
+          .select('tokens_remaining, email')
+          .eq('id', user_id)
+          .single();
+
+        if (userError) {
+          console.error('Error fetching user for token check:', userError);
+          return NextResponse.json({
+            success: false,
+            error: 'User authentication failed',
+            details: 'Unable to verify user account'
+          }, { status: 401 });
+        }
+
+        // Check if user has enough tokens (1 token per analysis)
+        const tokensRemaining = userData.tokens_remaining || 0;
+        if (tokensRemaining < 1) {
+          return NextResponse.json({
+            success: false,
+            error: 'Insufficient tokens',
+            details: `You have ${tokensRemaining} tokens remaining. Purchase more tokens to continue analysis.`,
+            tokensRemaining: tokensRemaining
+          }, { status: 402 }); // 402 Payment Required
+        }
+
+        // Deduct 1 token for this analysis
+        const { error: deductError } = await supabaseAdmin
+          .from('users')
+          .update({ 
+            tokens_remaining: tokensRemaining - 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user_id);
+
+        if (deductError) {
+          console.error('Error deducting token:', deductError);
+          return NextResponse.json({
+            success: false,
+            error: 'Token deduction failed',
+            details: 'Unable to process token payment'
+          }, { status: 500 });
+        }
+
+        console.log(`✅ Token deducted successfully. User ${userData.email} now has ${tokensRemaining - 1} tokens remaining.`);
+        
+      } catch (tokenError) {
+        console.error('Token system error:', tokenError);
+        return NextResponse.json({
+          success: false,
+          error: 'Token system unavailable',
+          details: 'Unable to process token payment at this time'
+        }, { status: 503 });
+      }
+    }
+
     console.log(`Starting enhanced competitor analysis for: ${website_url}`);
 
     // Send initial progress update
@@ -1080,6 +1142,43 @@ export async function POST(request: NextRequest) {
     
     if (user_id) {
       stopAnalysisTimeout(user_id);
+      
+      // Refund token if analysis failed due to system error (not user error)
+      try {
+        const supabaseAdmin = getSupabaseClient();
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Don't refund for authentication/payment errors (these are user errors)
+        const isSystemError = !errorMessage.includes('Insufficient tokens') && 
+                              !errorMessage.includes('User authentication failed') &&
+                              !errorMessage.includes('Token deduction failed');
+        
+        if (isSystemError) {
+          const { data: userData, error: fetchError } = await supabaseAdmin
+            .from('users')
+            .select('tokens_remaining, email')
+            .eq('id', user_id)
+            .single();
+
+          if (!fetchError && userData) {
+            const { error: refundError } = await supabaseAdmin
+              .from('users')
+              .update({ 
+                tokens_remaining: (userData.tokens_remaining || 0) + 1,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', user_id);
+
+            if (!refundError) {
+              console.log(`🔄 Token refunded to user ${userData.email} due to system error. New balance: ${(userData.tokens_remaining || 0) + 1}`);
+            } else {
+              console.error('Failed to refund token:', refundError);
+            }
+          }
+        }
+      } catch (refundError) {
+        console.error('Token refund error:', refundError);
+      }
     }
 
     // Handle specific JSON parsing errors
