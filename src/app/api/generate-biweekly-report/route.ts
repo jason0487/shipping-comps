@@ -744,6 +744,7 @@ async function logBiweeklyEmail(data: {
 }): Promise<void> {
   try {
     // Log to internal database
+    const supabase = getSupabaseClient();
     const { error: dbError } = await supabase
       .from('biweekly_email_logs')
       .insert({
