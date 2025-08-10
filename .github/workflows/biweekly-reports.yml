@@ -1,0 +1,48 @@
+name: Bi-Weekly Reports Scheduler
+on:
+  schedule:
+    # Run every 6 hours to catch all due reports
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  send-biweekly-reports:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send Due Reports
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL || 'https://your-railway-or-vercel-domain.com' }}
+        run: |
+          echo "Checking for due bi-weekly reports..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X GET "$PRODUCTION_URL/api/check-due-reports")
+          http_code=$(tail -n1 <<< "$response")
+          content=$(head -n -1 <<< "$response")
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $content"
+          
+          if [ "$http_code" = "200" ]; then
+            echo "✅ Successfully triggered bi-weekly report check"
+          else
+            echo "❌ Failed to trigger bi-weekly reports (HTTP $http_code)"
+            exit 1
+          fi
+
+      - name: Send Notification (Optional)
+        if: always()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            if [ "$?" = "0" ]; then
+              status="✅ Success"
+            else
+              status="❌ Failed"
+            fi
+            
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"Bi-weekly reports scheduler: $status at $(date)\"}" \
+              "$SLACK_WEBHOOK"
+          fi
