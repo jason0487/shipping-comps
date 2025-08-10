@@ -221,7 +221,7 @@ function extractShippingThreshold(shippingText: string): number | null {
 function generateActionableRecommendations(
   businessAnalysis: string,
   competitors: Competitor[],
-  avgThreshold: number
+  medianThreshold: number
 ): string {
   const competitorsWithShipping = competitors.filter(c => c.shipping_incentives);
   const thresholds = competitors
@@ -241,8 +241,8 @@ function generateActionableRecommendations(
         <ul style="margin: 0; padding-left: 20px;">
           <li style="margin-bottom: 8px;">
             <strong>Set Competitive Threshold:</strong> 
-            ${avgThreshold > 0 
-              ? `Consider a $${Math.max(25, avgThreshold - 10).toFixed(2)}-$${(avgThreshold - 5).toFixed(2)} free shipping threshold to undercut the $${avgThreshold.toFixed(2)} market average`
+            ${medianThreshold > 0 
+              ? `Consider a $${Math.max(25, medianThreshold - 10).toFixed(2)}-$${(medianThreshold - 5).toFixed(2)} free shipping threshold to undercut the $${medianThreshold.toFixed(2)} market median`
               : `With ${freeShippingCount} competitors offering free shipping, evaluate offering free shipping on orders over $${(minThreshold > 0 ? minThreshold - 10 : 35).toFixed(2)}`
             }
           </li>
@@ -293,13 +293,13 @@ function generateActionableRecommendations(
 }
 
 // Generate shipping threshold gauge section with trend and large number
-function generateShippingGauge(avgThreshold: number, competitorCount: number = 5): string {
+function generateShippingGauge(medianThreshold: number, competitorCount: number = 10): string {
   // Calculate percentage for gauge position
-  const percentage = Math.min(100, (avgThreshold / 200) * 100);
+  const percentage = Math.min(100, (medianThreshold / 200) * 100);
   
   // Mock trend data for email (in production, this would come from historical data)
-  const previousThreshold = avgThreshold - 5;
-  const trendChange = avgThreshold - previousThreshold;
+  const previousThreshold = medianThreshold - 5;
+  const trendChange = medianThreshold - previousThreshold;
   const trendText = trendChange > 0 ? 'rose by' : trendChange < 0 ? 'decreased by' : 'remained at';
   const trendAmount = Math.abs(trendChange);
   
@@ -308,7 +308,7 @@ function generateShippingGauge(avgThreshold: number, competitorCount: number = 5
       <!-- Top row - Market insight text -->
       <div style="margin-bottom: 32px; padding-right: 128px;">
         <p style="color: #9ca3af; font-size: 24px; line-height: 1.25; margin: 0; font-weight: 500;">
-          The market average free shipping threshold 
+          The market median free shipping threshold 
           <span style="color: #1f2937; font-weight: 600;">${trendText} $${trendAmount.toFixed(2)}</span> in the past two weeks.
         </p>
       </div>
@@ -318,10 +318,10 @@ function generateShippingGauge(avgThreshold: number, competitorCount: number = 5
         <!-- Left - Large threshold number -->
         <div style="padding-right: 32px;">
           <div style="font-size: 64px; font-weight: 700; color: #1f2937; margin-bottom: 8px; line-height: 1;">
-            $${avgThreshold.toFixed(0)}
+            $${medianThreshold.toFixed(0)}
           </div>
           <p style="color: #6b7280; font-size: 16px; margin: 0;">
-            Average threshold across ${competitorCount} key competitors
+            Median threshold across ${competitorCount} key competitors
           </p>
         </div>
         
@@ -480,8 +480,8 @@ export async function POST(request: NextRequest) {
     // Step 3: Find competitors
     const competitors = await findCompetitors(businessAnalysis);
     
-    // Step 4: Analyze competitor shipping (limit to 5 for performance)
-    const limitedCompetitors = competitors.slice(0, 5);
+    // Step 4: Analyze competitor shipping (use all 10 competitors for comprehensive analysis)
+    const limitedCompetitors = competitors.slice(0, 10);
     const enhancedCompetitors: Competitor[] = [];
     
     for (const competitor of limitedCompetitors) {
@@ -492,13 +492,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Step 5: Calculate average threshold
+    // Step 5: Calculate median threshold (more robust than average due to outliers)
     const thresholds = enhancedCompetitors
       .map(c => extractShippingThreshold(c.shipping_incentives || ''))
       .filter(t => t !== null) as number[];
     
-    const avgThreshold = thresholds.length > 0 ? 
-      thresholds.reduce((sum, t) => sum + t, 0) / thresholds.length : 75;
+    const medianThreshold = thresholds.length > 0 ? 
+      (() => {
+        const sorted = [...thresholds].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 !== 0 
+          ? sorted[mid] 
+          : (sorted[mid - 1] + sorted[mid]) / 2;
+      })() : 75;
 
     // Step 6: Generate report HTML with customized header
     const reportTitle = isWelcomeReport ? 'Welcome to Shipping Comps! Your First Report' : 'Bi-Weekly Shipping Intelligence Report';
@@ -536,7 +542,7 @@ export async function POST(request: NextRequest) {
           <p style="font-size: 14px; opacity: 0.8;">Generated on ${new Date().toLocaleDateString()}</p>
         </div>
 
-        ${generateShippingGauge(avgThreshold, enhancedCompetitors.length)}
+        ${generateShippingGauge(medianThreshold, enhancedCompetitors.length)}
 
         ${generateCompetitorChanges()}
 
@@ -547,7 +553,7 @@ export async function POST(request: NextRequest) {
           </div>
         </div>
 
-        ${generateActionableRecommendations(businessAnalysis, enhancedCompetitors, avgThreshold)}
+        ${generateActionableRecommendations(businessAnalysis, enhancedCompetitors, medianThreshold)}
 
         <div style="margin: 30px 0;">
           <h2>Competitor Shipping Analysis</h2>
@@ -665,7 +671,7 @@ export async function POST(request: NextRequest) {
       subscription_id: subscription_id || null,
       email_sent_successfully: emailSent,
       competitor_count: enhancedCompetitors.length,
-      avg_threshold: avgThreshold
+      avg_threshold: medianThreshold
     });
 
     return NextResponse.json({
@@ -675,7 +681,7 @@ export async function POST(request: NextRequest) {
         websiteUrl: finalWebsiteUrl,
         businessAnalysis,
         competitorCount: enhancedCompetitors.length,
-        avgThreshold: avgThreshold.toFixed(2),
+        avgThreshold: medianThreshold.toFixed(2),
         thresholds,
         reportType: report_type
       }
