@@ -47,12 +47,12 @@ export async function GET(request: NextRequest) {
       .eq('user_email', email)
       .order('created_at', { ascending: false });
 
-    // Get active subscriptions
+    // Get all subscriptions (active and cancelled) so user can manage them
     const { data: subscriptions, error: subError } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_email', email)
-      .eq('status', 'active');
+      .order('created_at', { ascending: false });
 
     const profileData = {
       user: userData,

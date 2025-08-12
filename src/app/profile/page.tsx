@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import EditSubscriptionModal from '@/components/EditSubscriptionModal';
 import CancelSubscriptionModal from '@/components/CancelSubscriptionModal';
 
@@ -230,7 +231,7 @@ export default function Profile() {
         setSubscriptions(prev => 
           prev.map(sub => 
             sub.id === subscriptionId 
-              ? { ...sub, is_active: false } 
+              ? { ...sub, is_active: false, status: 'cancelled', cancelled_at: new Date().toISOString() } 
               : sub
           )
         );
@@ -1006,7 +1007,11 @@ export default function Profile() {
     setMessage('');
 
     try {
-      const { error } = await supabase
+      const supabaseClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { error } = await supabaseClient
         .from('profiles')
         .update({ full_name: fullName, updated_at: new Date().toISOString() })
         .eq('id', user?.id);
@@ -1382,11 +1387,11 @@ export default function Profile() {
               )}
             </div>
 
-            {/* Active Subscriptions */}
+            {/* Subscriptions */}
             <div className="border-b border-gray-200 pb-6">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Active Subscriptions</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Subscriptions</h2>
                   <p className="text-sm text-gray-700 mt-1">Manage your bi-weekly monitoring subscriptions</p>
                 </div>
                 <button
