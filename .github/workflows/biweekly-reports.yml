@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Send Due Reports
         env:
-          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL || 'https://your-railway-or-vercel-domain.com' }}
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL || 'https://shippingcomps.railway.app' }}
         run: |
           echo "Checking for due bi-weekly reports..."
           
