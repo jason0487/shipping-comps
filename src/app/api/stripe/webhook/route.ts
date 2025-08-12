@@ -419,6 +419,63 @@ export async function POST(request: NextRequest) {
         }
         break;
         
+      case 'customer.subscription.deleted':
+        // Handle subscription cancellation
+        const deletedSubscription = event.data.object as Stripe.Subscription;
+        console.log('Subscription cancelled/deleted:', deletedSubscription.id);
+        
+        const supabase = getSupabaseClient();
+        
+        // Update subscription status in database
+        const { error: cancelError } = await supabase
+          .from('subscriptions')
+          .update({ 
+            is_active: false,
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('stripe_subscription_id', deletedSubscription.id);
+        
+        if (cancelError) {
+          console.error('Error updating cancelled subscription:', cancelError);
+        } else {
+          console.log('Successfully marked subscription as cancelled:', deletedSubscription.id);
+        }
+        break;
+        
+      case 'customer.subscription.updated':
+        // Handle subscription status changes (active/cancelled/paused)
+        const updatedSubscription = event.data.object as Stripe.Subscription;
+        console.log('Subscription updated:', updatedSubscription.id, 'status:', updatedSubscription.status);
+        
+        const supabase2 = getSupabaseClient();
+        
+        // Update subscription status based on Stripe status
+        const updateData: any = {
+          is_active: updatedSubscription.status === 'active',
+          updated_at: new Date().toISOString()
+        };
+        
+        if (updatedSubscription.status === 'canceled' || updatedSubscription.status === 'cancelled') {
+          updateData.status = 'cancelled';
+          updateData.cancelled_at = new Date().toISOString();
+        } else {
+          updateData.status = updatedSubscription.status;
+        }
+        
+        const { error: updateError } = await supabase2
+          .from('subscriptions')
+          .update(updateData)
+          .eq('stripe_subscription_id', updatedSubscription.id);
+        
+        if (updateError) {
+          console.error('Error updating subscription status:', updateError);
+        } else {
+          console.log('Successfully updated subscription status:', updatedSubscription.id, 'to', updatedSubscription.status);
+        }
+        break;
+
       case 'invoice.payment_failed':
         console.log('Payment failed for invoice:', event.data.object.id);
         break;
