@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Send Due Reports
         env:
-          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL || 'https://shippingcomps.railway.app' }}
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL || 'https://www.shippingcomps.com' }}
         run: |
           echo "Checking for due bi-weekly reports..."
           
