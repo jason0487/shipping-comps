@@ -23,6 +23,54 @@ function getSupabaseClient() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
+// Function to log URL inputs to Google Sheets
+async function logUrlToGoogleSheets(websiteUrl: string, request: NextRequest) {
+  try {
+    const webhookUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+    
+    if (!webhookUrl) {
+      console.log("Warning: GOOGLE_APPS_SCRIPT_URL not configured - skipping URL logging");
+      return;
+    }
+
+    // Get client info from request headers
+    const userAgent = request.headers.get('user-agent') || 'Unknown';
+    const forwarded = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     'Unknown IP';
+    const clientIp = forwarded.split(',')[0].trim();
+
+    const logData = {
+      timestamp: new Date().toISOString(),
+      url: websiteUrl,
+      ip: clientIp,
+      userAgent: userAgent.substring(0, 200), // Limit user agent length
+      sheet_type: 'url_logging' // Distinguish from biweekly emails
+    };
+
+    console.log('Logging URL to Google Sheets:', websiteUrl);
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(logData)
+    });
+
+    if (response.ok) {
+      const result = await response.text();
+      console.log('✅ URL successfully logged to Google Sheets');
+    } else {
+      console.error('Google Sheets logging failed:', response.status, response.statusText);
+    }
+    
+  } catch (error) {
+    console.error('Error logging URL to Google Sheets:', error);
+    // Don't throw - this is non-critical functionality
+  }
+}
+
 interface ComprehensiveBusinessData {
   business_name: string;
   business_description?: string;
@@ -790,12 +838,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check and deduct tokens if user_id provided
+    // Check tokens but don't deduct yet - deduct only on successful completion
     if (user_id) {
       try {
         const supabaseAdmin = getSupabaseClient();
         
-        // Get current user data
+        // Get current user data to verify they have enough tokens
         const { data: userData, error: userError } = await supabaseAdmin
           .from('users')
           .select('tokens_remaining, email')
@@ -811,7 +859,7 @@ export async function POST(request: NextRequest) {
           }, { status: 401 });
         }
 
-        // Check if user has enough tokens (1 token per analysis)
+        // Check if user has enough tokens (1 token per analysis) but don't deduct yet
         const tokensRemaining = userData.tokens_remaining || 0;
         if (tokensRemaining < 1) {
           return NextResponse.json({
@@ -822,25 +870,7 @@ export async function POST(request: NextRequest) {
           }, { status: 402 }); // 402 Payment Required
         }
 
-        // Deduct 1 token for this analysis
-        const { error: deductError } = await supabaseAdmin
-          .from('users')
-          .update({ 
-            tokens_remaining: tokensRemaining - 1,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', user_id);
-
-        if (deductError) {
-          console.error('Error deducting token:', deductError);
-          return NextResponse.json({
-            success: false,
-            error: 'Token deduction failed',
-            details: 'Unable to process token payment'
-          }, { status: 500 });
-        }
-
-        console.log(`✅ Token deducted successfully. User ${userData.email} now has ${tokensRemaining - 1} tokens remaining.`);
+        console.log(`✅ Token check passed. User ${userData.email} has ${tokensRemaining} tokens. Will deduct 1 token on successful completion.`);
         
       } catch (tokenError) {
         console.error('Token system error:', tokenError);
@@ -853,6 +883,11 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`Starting enhanced competitor analysis for: ${website_url}`);
+
+    // Log URL input to Google Sheets (async, non-blocking)
+    logUrlToGoogleSheets(website_url, request).catch(error => {
+      console.error('Google Sheets logging failed (non-critical):', error);
+    });
 
     // Send initial progress update
     if (session_id) {
@@ -1101,6 +1136,40 @@ export async function POST(request: NextRequest) {
       stopAnalysisTimeout(user_id);
     }
 
+    // Deduct token on successful completion
+    if (user_id) {
+      try {
+        const supabaseAdmin = getSupabaseClient();
+        
+        // Get current user data and deduct 1 token
+        const { data: userData, error: userError } = await supabaseAdmin
+          .from('users')
+          .select('tokens_remaining, email')
+          .eq('id', user_id)
+          .single();
+
+        if (!userError && userData) {
+          const { error: deductError } = await supabaseAdmin
+            .from('users')
+            .update({ 
+              tokens_remaining: Math.max(0, (userData.tokens_remaining || 0) - 1),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user_id);
+
+          if (!deductError) {
+            console.log(`✅ Token deducted on successful completion. User ${userData.email} now has ${Math.max(0, (userData.tokens_remaining || 0) - 1)} tokens remaining.`);
+          } else {
+            console.error('Failed to deduct token on completion:', deductError);
+          }
+        }
+        
+      } catch (tokenError) {
+        console.error('Token deduction on completion error:', tokenError);
+        // Continue with response even if token deduction fails - analysis was successful
+      }
+    }
+
     // Send final completion update
     if (session_id) {
       sendProgressUpdate(session_id, {
@@ -1143,42 +1212,8 @@ export async function POST(request: NextRequest) {
     if (user_id) {
       stopAnalysisTimeout(user_id);
       
-      // Refund token if analysis failed due to system error (not user error)
-      try {
-        const supabaseAdmin = getSupabaseClient();
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        // Don't refund for authentication/payment errors (these are user errors)
-        const isSystemError = !errorMessage.includes('Insufficient tokens') && 
-                              !errorMessage.includes('User authentication failed') &&
-                              !errorMessage.includes('Token deduction failed');
-        
-        if (isSystemError) {
-          const { data: userData, error: fetchError } = await supabaseAdmin
-            .from('users')
-            .select('tokens_remaining, email')
-            .eq('id', user_id)
-            .single();
-
-          if (!fetchError && userData) {
-            const { error: refundError } = await supabaseAdmin
-              .from('users')
-              .update({ 
-                tokens_remaining: (userData.tokens_remaining || 0) + 1,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', user_id);
-
-            if (!refundError) {
-              console.log(`🔄 Token refunded to user ${userData.email} due to system error. New balance: ${(userData.tokens_remaining || 0) + 1}`);
-            } else {
-              console.error('Failed to refund token:', refundError);
-            }
-          }
-        }
-      } catch (refundError) {
-        console.error('Token refund error:', refundError);
-      }
+      // No need to refund tokens since we only deduct on successful completion
+      console.log(`Analysis failed for user ${user_id} - no tokens were deducted since analysis did not complete successfully.`);
     }
 
     // Handle specific JSON parsing errors
