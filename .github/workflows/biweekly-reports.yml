@@ -16,7 +16,7 @@ jobs:
         run: |
           echo "Checking for due bi-weekly reports..."
           
-          response=$(curl -s -w "\n%{http_code}" -X POST "$PRODUCTION_URL/api/check-due-reports")
+          response=$(curl -s -w "\n%{http_code}" -X POST "$PRODUCTION_URL/api/generate-due-reports")
           http_code=$(tail -n1 <<< "$response")
           content=$(head -n -1 <<< "$response")
           
