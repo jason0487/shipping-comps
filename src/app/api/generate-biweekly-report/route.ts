@@ -701,7 +701,7 @@ async function sendBiweeklyReport(email: string, htmlContent: string, websiteUrl
   try {
     const sendgridApiKey = process.env.SENDGRID_API_KEY;
     if (!sendgridApiKey) {
-      console.log('SendGrid API key not configured, skipping email send');
+      console.error('SendGrid API key not configured, skipping email send');
       return false;
     }
 
@@ -709,29 +709,41 @@ async function sendBiweeklyReport(email: string, htmlContent: string, websiteUrl
       ? `🎉 Welcome to Shipping Comps! Your First Report is Ready` 
       : `Your Bi-Weekly Shipping Intelligence Report - ${new Date().toLocaleDateString()}`;
 
+    const emailPayload = {
+      personalizations: [{
+        to: [{ email }],
+        subject
+      }],
+      from: {
+        email: 'yourcustomreport@ondeliveri.com',
+        name: 'Shipping Comps by Deliveri Labs'
+      },
+      content: [{
+        type: 'text/html',
+        value: htmlContent
+      }]
+    };
+
+    console.log(`Sending biweekly email to ${email} with subject: ${subject}`);
+
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${sendgridApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        personalizations: [{
-          to: [{ email }],
-          subject
-        }],
-        from: {
-          email: 'yourcustomreport@ondeliveri.com',
-          name: 'Shipping Comps by Deliveri Labs'
-        },
-        content: [{
-          type: 'text/html',
-          value: htmlContent
-        }]
-      })
+      body: JSON.stringify(emailPayload)
     });
 
-    return response.ok;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`SendGrid error - Status: ${response.status}, Response: ${errorText}`);
+      console.error('Email payload that failed:', JSON.stringify(emailPayload, null, 2));
+      return false;
+    }
+
+    console.log(`Successfully sent biweekly email to ${email}`);
+    return true;
   } catch (error) {
     console.error('Email sending error:', error);
     return false;
