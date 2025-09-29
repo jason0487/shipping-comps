@@ -1,0 +1,4 @@
+DEPLOYMENT FORCE MARKER
+Timestamp: 2025-07-08 13:55:00
+Version: v4.0-DEPLOY-TEST
+Purpose: Force Railway to recognize file changes and deploy latest code

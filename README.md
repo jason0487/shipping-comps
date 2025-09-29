@@ -31,7 +31,7 @@ An advanced eCommerce shipping optimization platform that provides intelligent, 
 - **Payments**: Stripe subscriptions and one-time purchases
 - **AI/ML**: OpenAI GPT-4o, Perplexity AI for web scraping
 - **Email**: SendGrid for transactional emails
-- **Deployment**: Vercel with custom domain
+- **Deployment**: Railway with custom domain
 - **CRM Integration**: HubSpot for lead management
 
 ## 🏃‍♂️ Quick Start
@@ -119,16 +119,17 @@ shipping-comps/
 
 ## 🚀 Deployment
 
-### Vercel (Recommended)
+### Railway (Current Production)
 
-1. **Connect to Vercel**
+1. **Deploy to Railway**
 ```bash
-npx vercel --prod
+# Connect your GitHub repository to Railway
+# Railway will automatically deploy on push to main branch
 ```
 
-2. **Configure environment variables** in Vercel dashboard
+2. **Configure environment variables** in Railway dashboard
 
-3. **Set up custom domain** (optional)
+3. **Custom domain configured**: [www.shippingcomps.com](https://www.shippingcomps.com)
 
 ## 🤝 Contributing
 
