@@ -309,9 +309,9 @@ export async function POST(request: NextRequest) {
                         <li style="margin: 8px 0;">• Integration with your e-commerce platform (Shopify, Etsy, etc.)</li>
                     </ul>
                     <p><strong>Schedule a free consultation to discuss your shipping strategy!</strong></p>
-                    <a href="https://www.ondeliveri.com/bookademo" class="cta-button">Book Your Free Demo</a>
+                    <a href="https://www.ondeliveri.com/booking" class="cta-button">Book Your Free Demo</a>
                     <p style="font-size: 14px; color: #666; margin-top: 20px;">
-                        Simply reply to this email or visit www.ondeliveri.com/bookademo
+                        Simply reply to this email or visit www.ondeliveri.com/booking
                     </p>
                 </div>
 

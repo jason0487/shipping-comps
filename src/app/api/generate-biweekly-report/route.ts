@@ -630,7 +630,7 @@ export async function POST(request: NextRequest) {
             Schedule a free consultation to discuss your shipping strategy!
           </p>
           
-          <a href="https://www.ondeliveri.com/bookademo" style="
+          <a href="https://www.ondeliveri.com/booking" style="
             background: #2d3748;
             color: white;
             padding: 14px 32px;
@@ -646,8 +646,8 @@ export async function POST(request: NextRequest) {
           
           <p style="color: #6b7280; font-size: 14px; margin-top: 16px;">
             Simply reply to this email or visit 
-            <a href="https://www.ondeliveri.com/bookademo" style="color: #3182ce; text-decoration: underline;">
-              www.ondeliveri.com/bookademo
+            <a href="https://www.ondeliveri.com/booking" style="color: #3182ce; text-decoration: underline;">
+              www.ondeliveri.com/booking
             </a>
           </p>
         </div>
