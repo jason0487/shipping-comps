@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   
+  // Configure serverless function timeout for long-running analysis
+  // Railway supports up to 900 seconds (15 minutes) for Pro plans
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
+  
   // Force cache invalidation
   async headers() {
     return [

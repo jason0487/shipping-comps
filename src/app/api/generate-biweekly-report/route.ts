@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
+// Set maximum execution time to 10 minutes for Railway (Pro plan supports up to 15 minutes)
+export const maxDuration = 600;
+
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -21,12 +24,35 @@ function getSupabaseClient() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
-function getPerplexityApiKey() {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) {
-    throw new Error('PERPLEXITY_API_KEY environment variable is missing');
-  }
-  return apiKey;
+// Firecrawl configuration for comprehensive shipping data extraction
+interface FirecrawlShippingData {
+  has_free_shipping: boolean;
+  free_shipping_conditions?: string;
+  shipping_thresholds?: string;
+  regional_shipping_notes?: string;
+  shipping_incentives?: string;
+  general_shipping_policy?: string;
+  homepage_shipping_banners?: string[];
+  promotional_shipping_text?: string[];
+  raw_shipping_snippets?: string[];
+  free_shipping_incentives?: Array<{
+    description: string;
+    validity_period?: string;
+    minimum_purchase?: number;
+  }>;
+}
+
+interface FirecrawlBusinessData {
+  business_name?: string;
+  business_description?: string;
+  business_summary?: string;
+  shipping_info?: FirecrawlShippingData;
+  shipping_incentives?: Array<{
+    policy: string;
+    free_shipping_tier: string;
+    threshold_amount?: string;
+    delivery_timeframe?: string;
+  }>;
 }
 
 interface Competitor {
@@ -34,6 +60,8 @@ interface Competitor {
   website: string;
   products: string;
   shipping_incentives?: string;
+  threshold?: number | null;
+  firecrawlData?: FirecrawlBusinessData | null;
 }
 
 // Scrape website content
@@ -141,50 +169,208 @@ Focus on direct competitors in the same industry with similar products and targe
   }
 }
 
-// Analyze competitor shipping with Perplexity
-async function analyzeCompetitorShipping(competitor: Competitor): Promise<string> {
-  const perplexityApiKey = getPerplexityApiKey();
-  if (!perplexityApiKey) {
-    return 'Shipping analysis unavailable - API key not configured';
+// Analyze competitor shipping with Firecrawl (same approach as main analyze route)
+async function analyzeCompetitorShippingWithFirecrawl(competitor: Competitor): Promise<{ shippingText: string; threshold: number | null; data: FirecrawlBusinessData | null }> {
+  const firecrawlApiKey = process.env.FIRECRAWL_API_KEY;
+  
+  if (!firecrawlApiKey) {
+    console.error('Firecrawl API key not configured');
+    return { shippingText: 'Shipping analysis unavailable - API key not configured', threshold: null, data: null };
   }
 
-  const prompt = `What are the current shipping policies for ${competitor.name} (${competitor.website})? 
-  
-  Provide ONLY the key shipping details in this format:
-  • Free shipping threshold: $X or "None"
-  • Standard shipping: Cost and timeframe
-  • Express options: Available speeds and costs
-  
-  Keep response under 100 words and focus on concrete numbers.`;
+  let websiteUrl = competitor.website;
+  if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
+    websiteUrl = 'https://' + websiteUrl;
+  }
 
   try {
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    console.log(`Firecrawl: Analyzing shipping for ${competitor.name} (${websiteUrl})...`);
+
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Authorization': `Bearer ${firecrawlApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
-        temperature: 0.3,
-      }),
+        url: websiteUrl,
+        formats: ["extract"],
+        waitFor: 3000,
+        onlyMainContent: false,
+        extract: {
+          prompt: `CRITICAL: Look carefully for shipping information displayed anywhere on this website, especially in header banners, promotional bars, and navigation areas.
+
+**SHIPPING INFORMATION - SEARCH EVERYWHERE:**
+- **HEADER/BANNER TEXT**: Look for any text at the top of the page mentioning shipping (e.g., "Free Shipping on orders over $X", "Free delivery", "Complimentary shipping")
+- **PROMOTIONAL BANNERS**: Check any colored bars, announcement banners, or promotional messages about shipping
+- **NAVIGATION AREAS**: Look for shipping mentions in menu items, top bars, or sticky headers
+- **EXACT TEXT CAPTURE**: Record the exact wording of any shipping-related text found
+- **THRESHOLD DETECTION**: Identify specific dollar amounts for free shipping and extract the numeric value (e.g., if you see "$75", extract 75 as a number)
+- **STRUCTURED INCENTIVES**: For each shipping offer found, create a structured object with the description, any validity period, and the minimum purchase amount as a number
+- **CONDITIONS**: Note any conditions like "Continental US only", "Domestic shipping", membership requirements
+- **FOOTER SHIPPING**: Check footer sections for shipping policy links or mentions
+- **CART/CHECKOUT HINTS**: Look for shipping mentions near add-to-cart buttons or product pages
+
+IMPORTANT: Even if shipping information seems minimal, capture ANY mention of delivery, shipping costs, free shipping thresholds, or shipping-related text found anywhere on the page.`,
+          schema: {
+            type: "object",
+            properties: {
+              shipping_info: {
+                type: "object",
+                properties: {
+                  has_free_shipping: { type: "boolean" },
+                  free_shipping_incentives: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        description: { type: "string", description: "Exact text describing the shipping offer" },
+                        validity_period: { type: "string", description: "Time period or conditions when offer is valid" },
+                        minimum_purchase: { type: "number", description: "Dollar amount threshold for free shipping (e.g., 75 for $75)" }
+                      },
+                      required: ["description"]
+                    },
+                    description: "Structured shipping incentives with specific thresholds and conditions"
+                  },
+                  free_shipping_conditions: { type: "string", description: "General conditions for free shipping found on the website" },
+                  shipping_thresholds: { type: "string", description: "Text description of minimum order amounts for free shipping" },
+                  regional_shipping_notes: { type: "string", description: "Geographic restrictions or regional shipping details" },
+                  shipping_incentives: { type: "string", description: "General shipping promotions or incentives offered" },
+                  general_shipping_policy: { type: "string", description: "General shipping information or policy details" },
+                  homepage_shipping_banners: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Exact text from any shipping banners, headers, or promotional bars on the homepage"
+                  },
+                  promotional_shipping_text: {
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "Any promotional text mentioning shipping, delivery, or related offers"
+                  },
+                  raw_shipping_snippets: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "All shipping-related text snippets found anywhere on the website"
+                  }
+                },
+                required: []
+              },
+              business_name: { type: "string" },
+              business_description: { type: "string" },
+              business_summary: { type: "string" }
+            },
+            required: []
+          }
+        }
+      })
     });
 
-    const data = await response.json();
-    const rawContent = data.choices?.[0]?.message?.content || 'Shipping information not available';
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Firecrawl failed for ${websiteUrl}: ${response.status} ${response.statusText}`);
+      console.error(`Error response body:`, errorText);
+      return { shippingText: 'Shipping information not available', threshold: null, data: null };
+    }
+
+    const scrapeData = await response.json();
+
+    if (!scrapeData.success) {
+      console.error(`Firecrawl failed for ${websiteUrl}:`, scrapeData.error);
+      return { shippingText: 'Shipping information not available', threshold: null, data: null };
+    }
+
+    const extractedData = scrapeData.data?.extract as FirecrawlBusinessData || null;
     
-    // Clean up and format the response to be more concise
-    return rawContent
-      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold markdown
-      .replace(/#{1,6}\s*/g, '') // Remove headers
-      .replace(/\n{3,}/g, '\n\n') // Reduce excessive line breaks
-      .trim();
+    // Handle case where Firecrawl returns success but no extract data
+    if (!extractedData) {
+      console.log(`Firecrawl returned no extract data for ${websiteUrl}`);
+      return { shippingText: 'Shipping information not available', threshold: null, data: null };
+    }
+    
+    if (!extractedData.shipping_info) {
+      console.log(`No shipping info found for ${websiteUrl}`);
+      // Return what we have, even if no shipping info
+      return { shippingText: 'No shipping information found', threshold: null, data: extractedData };
+    }
+
+    const shippingInfo = extractedData.shipping_info;
+    
+    // Combine all shipping text sources for display
+    const allShippingText = [
+      shippingInfo.free_shipping_conditions || '',
+      shippingInfo.shipping_thresholds || '',
+      shippingInfo.shipping_incentives || '',
+      shippingInfo.general_shipping_policy || '',
+      ...(shippingInfo.homepage_shipping_banners || []),
+      ...(shippingInfo.raw_shipping_snippets || [])
+    ].filter(text => text && text.trim().length > 0);
+    
+    // Format shipping text for display
+    let shippingText = allShippingText.length > 0 
+      ? allShippingText.slice(0, 3).join(' • ')
+      : (shippingInfo.has_free_shipping ? 'Free shipping available' : 'Shipping information limited');
+    
+    // Extract threshold from structured incentives first
+    let threshold: number | null = null;
+    
+    if (shippingInfo.free_shipping_incentives && shippingInfo.free_shipping_incentives.length > 0) {
+      for (const incentive of shippingInfo.free_shipping_incentives) {
+        if (typeof incentive.minimum_purchase === 'number') {
+          threshold = incentive.minimum_purchase;
+          break;
+        }
+      }
+    }
+    
+    // Fallback to text-based extraction if no structured threshold
+    if (threshold === null) {
+      threshold = extractShippingThresholdFromText(shippingText);
+    }
+    
+    // If still no threshold but has free shipping, assume $0
+    if (threshold === null && shippingInfo.has_free_shipping && !shippingText.includes('$')) {
+      threshold = 0;
+    }
+
+    console.log(`Firecrawl: ${competitor.name} - Threshold: $${threshold ?? 'N/A'}, Text: ${shippingText.substring(0, 100)}...`);
+    
+    return { shippingText, threshold, data: extractedData };
   } catch (error) {
-    console.error('Perplexity API error:', error);
-    return 'Shipping analysis unavailable';
+    console.error('Firecrawl API error for', competitor.name, ':', error);
+    return { shippingText: 'Shipping analysis unavailable', threshold: null, data: null };
   }
+}
+
+// Extract shipping threshold from text (fallback method)
+function extractShippingThresholdFromText(shippingText: string): number | null {
+  if (!shippingText) return null;
+  
+  const thresholdPatterns = [
+    /free shipping.*?[\$](\d+)/i,
+    /[\$](\d+).*?free shipping/i,
+    /orders over [\$](\d+)/i,
+    /minimum [\$](\d+)/i,
+    /spend [\$](\d+)/i,
+    /over \$(\d+)/i,
+    /\$(\d+)\+?\s*(?:for\s+)?free/i,
+  ];
+
+  for (const pattern of thresholdPatterns) {
+    const match = shippingText.match(pattern);
+    if (match) {
+      const threshold = parseInt(match[1]);
+      if (threshold > 0 && threshold <= 500) {
+        return threshold;
+      }
+    }
+  }
+
+  // Check for free shipping with no threshold
+  if (/free shipping/i.test(shippingText) && !/\$\d+/i.test(shippingText)) {
+    return 0;
+  }
+
+  return null;
 }
 
 // Extract shipping threshold from text
@@ -480,21 +666,30 @@ export async function POST(request: NextRequest) {
     // Step 3: Find competitors
     const competitors = await findCompetitors(businessAnalysis);
     
-    // Step 4: Analyze competitor shipping (use all 10 competitors for comprehensive analysis)
+    // Step 4: Analyze competitor shipping with Firecrawl (use all 10 competitors for comprehensive analysis)
     const limitedCompetitors = competitors.slice(0, 10);
     const enhancedCompetitors: Competitor[] = [];
     
+    console.log(`Analyzing shipping for ${limitedCompetitors.length} competitors using Firecrawl...`);
+    
     for (const competitor of limitedCompetitors) {
-      const shippingAnalysis = await analyzeCompetitorShipping(competitor);
+      const { shippingText, threshold, data } = await analyzeCompetitorShippingWithFirecrawl(competitor);
       enhancedCompetitors.push({
         ...competitor,
-        shipping_incentives: shippingAnalysis
+        shipping_incentives: shippingText,
+        threshold: threshold,
+        firecrawlData: data
       });
+      
+      // Small delay between requests to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    // Step 5: Calculate median threshold (more robust than average due to outliers)
+    console.log(`Completed Firecrawl analysis for all ${enhancedCompetitors.length} competitors`);
+
+    // Step 5: Calculate median threshold using Firecrawl-extracted thresholds (more accurate than text parsing)
     const thresholds = enhancedCompetitors
-      .map(c => extractShippingThreshold(c.shipping_incentives || ''))
+      .map(c => c.threshold ?? extractShippingThreshold(c.shipping_incentives || ''))
       .filter(t => t !== null) as number[];
     
     const medianThreshold = thresholds.length > 0 ? 
